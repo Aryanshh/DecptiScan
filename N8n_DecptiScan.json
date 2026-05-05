@@ -1,0 +1,573 @@
+{
+  "name": "withDeet (Nov 17 at 16:02:47)",
+  "nodes": [
+    {
+      "parameters": {
+        "operation": "pdf",
+        "binaryPropertyName": "file0",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1,
+      "position": [
+        -336,
+        560
+      ],
+      "id": "5e1a23bb-5814-4410-9fb0-784b3596a2a1",
+      "name": "Extract from File"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "receive-pdf",
+        "responseMode": "responseNode",
+        "options": {
+          "binaryPropertyName": "file"
+        }
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -608,
+        512
+      ],
+      "id": "81fe3ce0-a3e7-47b5-a6d4-62fcdb7660d6",
+      "name": "Webhook",
+      "webhookId": "348c294a-c4ce-415f-9e3e-12b4263ee5c0"
+    },
+    {
+      "parameters": {
+        "text": "={{ $json.text }}",
+        "schemaType": "manual",
+        "inputSchema": "{\n  \"document_type\": \"job-posting | offer-letter | resume | linkedin-profile\",\n  \"source_text_summary\": \"Short summary of the document in 1-2 sentences\",\n  \n  \"job_info\": {\n    \"job_title\": \"string or null\",\n    \"company\": \"string or null\",\n    \"location\": \"string or null\",\n    \"salary\": \"string or null\",\n    \"employment_type\": \"full-time | part-time | contract | internship | freelance | null\",\n    \"required_skills\": [\"string\", \"...\"],\n    \"experience_required\": \"string or null\",\n    \"posting_date\": \"YYYY-MM-DD or null\",\n    \"application_link\": \"url or null\"\n  },\n\n  \"offer_details\": {\n    \"candidate_name\": \"string or null\",\n    \"position_offered\": \"string or null\",\n    \"offered_salary\": \"string or null\",\n    \"joining_date\": \"YYYY-MM-DD or null\",\n    \"probation_period\": \"string or null\",\n    \"benefits\": [\"string\", \"...\"],\n    \"reporting_manager\": \"string or null\"\n  },\n\n  \"resume_details\": {\n    \"name\": \"string or null\",\n    \"email\": \"string or null\",\n    \"phone\": \"string or null\",\n    \"education\": [\n      {\n        \"degree\": \"string\",\n        \"institution\": \"string\",\n        \"year\": \"string\"\n      }\n    ],\n    \"experience\": [\n      {\n        \"role\": \"string\",\n        \"company\": \"string\",\n        \"duration\": \"string\",\n        \"responsibilities\": [\"string\", \"...\"]\n      }\n    ],\n    \"skills\": [\"string\", \"...\"],\n    \"certifications\": [\"string\", \"...\"]\n  },\n\n  \"linkedin_profile\": {\n    \"name\": \"string or null\",\n    \"headline\": \"string or null\",\n    \"location\": \"string or null\",\n    \"connections\": \"string or null\",\n    \"skills_endorsed\": [\"string\", \"...\"],\n    \"current_role\": \"string or null\",\n    \"profile_link\": \"url or null\"\n  }\n}\n",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.informationExtractor",
+      "typeVersion": 1.2,
+      "position": [
+        64,
+        480
+      ],
+      "id": "c856da98-e15a-4994-b8db-7b03f179789f",
+      "name": "Information Extractor"
+    },
+    {
+      "parameters": {
+        "model": "mistral-small-latest",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatMistralCloud",
+      "typeVersion": 1,
+      "position": [
+        224,
+        624
+      ],
+      "id": "b59340b3-5866-42c3-a48f-94e4483d7355",
+      "name": "Mistral Cloud Chat Model3",
+      "credentials": {
+        "mistralCloudApi": {
+          "id": "FS4A4vsAZjwpuQvR",
+          "name": "Mistral Cloud account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Step 1: Safely get raw text input from 'output' field\nlet rawOutput = $input.first().json.output;\n\nif (typeof rawOutput !== 'string') {\n  try {\n    rawOutput = JSON.stringify(rawOutput);\n  } catch (e) {\n    rawOutput = \"\";\n  }\n}\n\nconst text = rawOutput.toLowerCase();\n\n// Step 2: Keyword banks (extended)\nconst deceptiveKeywords = [\n  // Existing keywords\n  \"quick money\", \"work from home and earn\", \"investment required\", \"guaranteed income\",\n  \"no experience needed\", \"limited seats\", \"act now\", \"urgent requirement\", \"100% payout\",\n  \"training fee\", \"processing charge\", \"registration fee\", \"pay to apply\", \"sms sending job\",\n  \"ad posting job\", \"captcha typing\", \"easy income\", \"double your salary\", \"government approved\",\n  \"make money fast\", \"no interview required\", \"instant job\", \"just 2 hours a day\", \"click now\",\n  \"join immediately\", \"minimal effort\", \"bulk hiring\", \"get rich quick\", \"foreign job offer\",\n\n  // 💸 Financial red flags\n  \"payment\", \"₹\", \"rs.\", \"rupee\", \"security deposit\", \"bank account\",\n  \"account number\", \"bank transfer\", \"paytm\", \"google pay\", \"phonepe\", \"send money\", \n  \"transfer fee\", \"non-refundable fee\"\n];\n\nconst generalJobKeywords = [\n  \"job title\", \"salary\", \"location\", \"experience\", \"skills\", \"responsibilities\", \"benefits\",\n  \"qualifications\", \"requirements\", \"interview\", \"position\", \"company\", \"full-time\", \"part-time\",\n  \"remote\", \"on-site\", \"job description\", \"apply\", \"deadline\", \"role\", \"vacancy\", \"department\",\n  \"internship\", \"stipend\", \"team\", \"manager\", \"technical\", \"non-technical\", \"education\"\n];\n\n// Step 3: Keyword matching\nfunction extractMatches(list, input) {\n  return list.filter(phrase => new RegExp(`\\\\b${phrase.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')}\\\\b`, \"gi\").test(input));\n}\n\nconst foundDeceptive = extractMatches(deceptiveKeywords, text);\nconst foundGeneral = extractMatches(generalJobKeywords, text);\n\n// Step 4: Scoring\nconst maxDeceptiveWeight = 10;\nlet rawScore = foundDeceptive.length * 2 - foundGeneral.length * 0.5;\nlet score = Math.min(maxDeceptiveWeight, Math.max(0, Math.round(rawScore)));\n\nlet verdict;\nif (score >= 7) verdict = \"Fake\";\nelse if (score >= 4) verdict = \"Suspicious\";\nelse verdict = \"Genuine\";\n\n// Step 5: Risk explanation summary\nlet summary = `✅ Found ${foundGeneral.length} general job-related keywords.\\n`;\nsummary += `⚠️ Found ${foundDeceptive.length} potentially deceptive indicators.\\n`;\n\nif (foundDeceptive.length > 0) {\n  summary += `🔍 Deceptive terms detected: ${foundDeceptive.join(\", \")}.\\n`;\n}\n\nsummary += `\\n📊 Deception Score: ${score}/10 → Verdict: **${verdict}**.`;\n\n// Step 6: Output\nreturn [\n  {\n    json: {\n      preview: text.slice(0, 300) + (text.length > 300 ? \"... (truncated)\" : \"\"),\n      matched_deceptive_keywords: foundDeceptive,\n      matched_general_keywords: foundGeneral,\n      count_deceptive: foundDeceptive.length,\n      count_general: foundGeneral.length,\n      deception_score: score,\n      verdict: verdict,\n      summary: summary.trim()\n    }\n  }\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        448,
+        480
+      ],
+      "id": "c160f2a2-5225-4169-8517-815c195e4035",
+      "name": "Summary_outp",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get the website from input safely\nlet website = $input.first().json.output?.Website || \"\";\n\n// Ensure it's a string\nif (typeof website !== \"string\") {\n  website = String(website || \"\");\n}\n\n// Trim and normalize\nwebsite = website.trim();\n\n// Output just the cleaned website link\nreturn [{ json: { website } }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        448,
+        624
+      ],
+      "id": "131ab55e-90d9-4a49-9840-7a2065ba97fa",
+      "name": "Web_out",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Step 1: Get and sanitize input\nlet raw = $input.first()?.json?.text ?? \"\";\n\nif (typeof raw !== 'string') {\n  try {\n    raw = JSON.stringify(raw);\n  } catch {\n    raw = \"\";\n  }\n}\n\nconst text = raw.toLowerCase().replace(/\\s+/g, \" \").trim();\n\n// Step 2: Expanded keyword and phrase banks\n\n// 🧨 Financial or payment-related scams\nconst paymentScams = [\n  \"registration fee\", \"processing fee\", \"security deposit\", \"training fee\",\n  \"application charge\", \"deposit\", \"pay to apply\", \"payable amount\",\n  \"registration charges\", \"refundable fee\", \"service charge\", \"gst included\",\n  \"bank transfer\", \"payment methods\", \"send money\", \"transfer amount\",\n  \"gpay\", \"paytm\", \"phonepe\", \"upi id\", \"account number\"\n];\n\n// 💰 Unrealistic earning / bait offers\nconst moneyBait = [\n  \"guaranteed income\", \"earn money\", \"get rich\", \"quick money\", \"easy income\",\n  \"no experience needed\", \"work from home\", \"earn ₹\", \"instant job\",\n  \"limited seats\", \"act now\", \"apply fast\", \"urgent requirement\"\n];\n\n// 📢 HR / fake authority triggers\nconst fakeAuthority = [\n  \"dear intern\", \"dear candidate\", \"hr department\", \"authorized recruiter\",\n  \"official partner\", \"verified by\", \"approved by\", \"offer letter after payment\",\n  \"internship confirmation\", \"your profile has been shortlisted\"\n];\n\n// 🧠 Legitimate job signals (to reduce false positives)\nconst legitIndicators = [\n  \"position\", \"company\", \"experience\", \"skills\", \"responsibilities\", \"location\",\n  \"salary\", \"requirements\", \"team\", \"manager\", \"vacancy\", \"full-time\", \"part-time\",\n  \"official website\", \"career page\", \"linkedIn\", \"email id\", \"remote\"\n];\n\n// Step 3: Pattern matching helper\nconst matchCount = (keywords, input) => {\n  const matches = keywords.filter(k => input.includes(k));\n  return { matches, count: matches.length };\n};\n\nconst payment = matchCount(paymentScams, text);\nconst bait = matchCount(moneyBait, text);\nconst authority = matchCount(fakeAuthority, text);\nconst legit = matchCount(legitIndicators, text);\n\n// Step 4: Score calculation\nlet score = 0;\nscore += payment.count * 2.5;\nscore += bait.count * 1.5;\nscore += authority.count * 1.2;\nscore -= legit.count * 0.5;\n\n// Extra penalties for suspicious patterns\nif (text.includes(\"offer letter\") && text.includes(\"payment\")) score += 3;\nif (text.includes(\"internship\") && text.includes(\"fee\")) score += 2.5;\nif (text.includes(\"secure your spot\")) score += 2;\nif (text.match(/\\bby \\d{1,2}[-/]\\d{1,2}[-/]\\d{2,4}\\b/)) score += 1.5; // deadlines\nif (text.match(/\\₹\\s?\\d+/)) score += 1.5; // currency mention\n\n// Step 5: Regex-based detections\nconst currency = [...text.matchAll(/(?:₹|rs\\.?|rupees?|usd|inr)\\s?[\\d,.]+/g)].map(m => m[0]);\nconst links = [...text.matchAll(/\\bhttps?:\\/\\/[^\\s]+/g)].map(m => m[0]);\nconst emails = [...text.matchAll(/\\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Z|a-z]{2,}\\b/g)].map(m => m[0]);\n\n// Step 6: Final verdict thresholds\nlet verdict = \"Genuine\";\nif (score >= 8) verdict = \"Fake\";\nelse if (score >= 4) verdict = \"Suspicious\";\n\n// Step 7: Output formatted JSON\nreturn [\n  {\n    json: {\n      preview: text.slice(0, 350) + (text.length > 350 ? \"...\" : \"\"),\n      deception_score: Math.round(score * 10) / 10,\n      verdict: verdict,\n      matched_payment_keywords: payment.matches,\n      matched_bait_keywords: bait.matches,\n      matched_authority_keywords: authority.matches,\n      matched_legit_keywords: legit.matches,\n      currency_mentions: currency,\n      email_addresses: emails,\n      external_links: links,\n      summary_flags: [\n        ...(currency.length ? [\"Currency Mention\"] : []),\n        ...(emails.length ? [\"Email Mention\"] : []),\n        ...(links.length ? [\"External Link\"] : []),\n        ...(text.includes(\"offer letter\") && text.includes(\"payment\") ? [\"Offer After Payment\"] : [])\n      ]\n    }\n  }\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        64,
+        288
+      ],
+      "id": "19e222ef-d247-4545-b9b5-60b152c3bbbf",
+      "name": "NLP_herustic",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "inputText": "={{ $json.text }}",
+        "categories": {
+          "categories": [
+            {
+              "category": "Offer Letter",
+              "description": "A formal document from an employer offering a job to a candidate, including terms of employment."
+            },
+            {
+              "category": "job-posting",
+              "description": "A public job advertisement that describes an open position and invites candidates to apply."
+            },
+            {
+              "category": "resume",
+              "description": "A personal document created by a job seeker that outlines their qualifications, work history, and skills."
+            },
+            {
+              "category": "linkedin-profile",
+              "description": "A professional online profile showing work experience, skills, endorsements, and career highlights."
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.textClassifier",
+      "typeVersion": 1.1,
+      "position": [
+        64,
+        48
+      ],
+      "id": "6bc1d43c-ae0b-45c8-8764-40de7bff2ca8",
+      "name": "Document Classifier",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "string",
+                      "operation": "exists",
+                      "singleValue": true
+                    },
+                    "id": "b041a7fe-b00b-429d-b8e3-a55b9a3c4dfe"
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        656,
+        80
+      ],
+      "id": "dec24b89-921c-44c4-955e-15a9c9cc65cf",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "jsCode": "const verdict = $json.verdict;\nconst prob = $json.probability;\n\nif (verdict === \"Fake\" && prob > 0.8) {\n  return [{ alert: \"Scam job detected!\", confidence: prob }];\n} else {\n  return [{ alert: \"Looks fine\", confidence: prob }];\n}\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        448,
+        768
+      ],
+      "id": "cd25f7e7-f9aa-4354-b0bd-16e0d2c1ea82",
+      "name": "Convert"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8000/predict",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "text",
+              "value": "=={{$json.text}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        64,
+        768
+      ],
+      "id": "93861a1c-223d-4e70-b417-e959fc613f51",
+      "name": "FastAPI_Bert"
+    },
+    {
+      "parameters": {
+        "model": "mistral-small-latest",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatMistralCloud",
+      "typeVersion": 1,
+      "position": [
+        -64,
+        1184
+      ],
+      "id": "4ad1502c-0a6c-4d48-b943-c39dc06e8225",
+      "name": "Mistral Cloud",
+      "credentials": {
+        "mistralCloudApi": {
+          "id": "FS4A4vsAZjwpuQvR",
+          "name": "Mistral Cloud account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "mistral-small-latest",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatMistralCloud",
+      "typeVersion": 1,
+      "position": [
+        48,
+        1152
+      ],
+      "id": "c4209130-8a37-4b2f-bbdc-34bff6d80006",
+      "name": "Mistral Cloud_2",
+      "credentials": {
+        "mistralCloudApi": {
+          "id": "FS4A4vsAZjwpuQvR",
+          "name": "Mistral Cloud account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "You are an expert AI fraud analyst working alongside automated rule-based and ML-based systems to detect fake or deceptive job/internship postings.\n\nYour task is to provide a **human-level interpretation** of the following message and return your judgment in structured JSON format.\n\nConsider the following:\n1. Look for red flags such as:\n   - Requests for **money, deposits, registration fees, or training charges**.\n   - Phrases showing **urgency** (“limited seats”, “pay now”, “confirm immediately”).\n   - **Unverified emails**, **public Google forms**, or **non-official company domains**.\n   - Promises of **guaranteed income**, **unrealistic offers**, or **no-interview selections**.\n   - Poor grammar, vague company details, or missing official contact info.\n\n2. Also note signs of legitimacy:\n   - Clear job descriptions, structured role details, and real corporate contact domains.\n   - Professional tone, genuine benefits, and interview-based processes.\n\n3. Based on this, determine the likelihood that the job/internship posting is:\n   - **Fake** (clearly deceptive or scam)\n   - **Suspicious** (partly questionable, needs verification)\n   - **Genuine** (appears legitimate and risk-free)\n\n4. Rate your confidence from **0.0 to 1.0**.\n\n5. Provide feedback that complements rule-based and model-based predictions by offering **human-level interpretation** — describe your reasoning, highlight key red flags or positive indicators, and advise the user on what to do next.\n\nReturn your result **strictly in JSON format** as:\n{\n  \"verdict\": \"<Fake | Suspicious | Genuine>\",\n  \"confidence\": <float>,\n  \"feedback\": \"<Detailed explanation paragraph (3–6 sentences) describing reasoning and recommendations>\"\n}\n\nHere is the text to analyze:\n{{ $json.text }}\n",
+        "hasOutputParser": true,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2,
+      "position": [
+        64,
+        960
+      ],
+      "id": "fe10d17a-644a-49ed-9297-0259f640f742",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        1696,
+        496
+      ],
+      "id": "c23eb662-574c-4e90-8996-3e652b3ac871",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "// --- Step 1: Get inputs ---\nconst heuristic = $input.all()[0]?.json || {}; // From heuristic node\nconst ml = $input.all()[1]?.json || {};        // From FastAPI ML model\n\nconst heuristicScore = heuristic.deception_score ?? 0;\nconst mlProb = ml.probability ?? 0;\nconst mlVerdict = ml.verdict ?? (mlProb > 0.6 ? \"Fake\" : \"Genuine\");\n\n// --- Step 2: Weighted hybrid score ---\nconst hybridScore = (heuristicScore / 10) * 0.4 + mlProb * 0.6;\nconst hybridPercent = Math.round(hybridScore * 1000) / 10; // e.g. 78.3%\n\nlet hybridVerdict = \"Genuine\";\nif (hybridScore >= 0.75) hybridVerdict = \"Fake\";\nelse if (hybridScore >= 0.45) hybridVerdict = \"Suspicious\";\n\n// --- Step 3: Compose detailed reasoning ---\nconst reasons = [];\nconst emailCount = heuristic.email_addresses?.length || 0;\nconst linkCount = heuristic.external_links?.length || 0;\nconst currencyCount = heuristic.currency_mentions?.length || 0;\nconst paymentTerms = heuristic.matched_payment_keywords || [];\nconst baitTerms = heuristic.matched_bait_keywords || [];\nconst authorityTerms = heuristic.matched_authority_keywords || [];\n\nif (mlProb >= 0.8) {\n  reasons.push(\n    `The AI model predicted a ${Math.round(mlProb * 100)}% probability that the posting is deceptive, which strongly influences the overall verdict.`\n  );\n} else if (mlProb >= 0.6) {\n  reasons.push(\n    `The machine learning model indicates a moderately high probability (${Math.round(mlProb * 100)}%) of deception.`\n  );\n} else {\n  reasons.push(\n    `The AI model detected minimal statistical signals of deception in the text.`\n  );\n}\n\nif (heuristicScore >= 8) {\n  reasons.push(\n    `Heuristic analysis flagged numerous high-risk keywords and scam patterns (e.g. ${[...paymentTerms, ...baitTerms, ...authorityTerms].slice(0, 3).join(\", \")}). This suggests strong linguistic signs of fraudulent intent.`\n  );\n} else if (heuristicScore >= 5) {\n  reasons.push(\n    `Heuristic analysis found several moderate-risk terms commonly used in misleading job ads, though not enough for a full fraud determination.`\n  );\n} else {\n  reasons.push(\n    `The heuristic keyword analysis revealed few or no deceptive terms.`\n  );\n}\n\nif (currencyCount > 0) {\n  reasons.push(\n    `Currency references were detected (${heuristic.currency_mentions.join(\", \")}), which often indicates payment requests or financial commitments — a major red flag in job listings.`\n  );\n}\n\nif (emailCount > 1) {\n  reasons.push(\n    `${emailCount} different email addresses were found (${heuristic.email_addresses.slice(0, 3).join(\", \")}), suggesting potential impersonation or unverified HR communication channels.`\n  );\n}\n\nif (linkCount > 0) {\n  reasons.push(\n    `${linkCount} external link${linkCount > 1 ? \"s\" : \"\"} were included (${heuristic.external_links.slice(0, 2).join(\", \")}). Legitimate employers rarely use public forms or anonymous links for recruitment, which strengthens suspicion.`\n  );\n}\n\nif (hybridVerdict === \"Fake\") {\n  reasons.push(\n    `Combining both AI and rule-based results, the posting clearly exhibits multiple fraud indicators — especially payment instructions and non-official contact channels.`\n  );\n} else if (hybridVerdict === \"Suspicious\") {\n  reasons.push(\n    `Some evidence of deceptive phrasing was detected, though not conclusively fraudulent. The message should be verified manually before taking action.`\n  );\n} else {\n  reasons.push(\n    `Both AI and heuristic systems found minimal signs of fraud. The posting appears legitimate but still warrants a quick authenticity check.`\n  );\n}\n\n// --- Step 4: Build narrative summary ---\nconst summary = `\n🤖 Hybrid Deception Analysis\n────────────────────────────\nVerdict: ${hybridVerdict}\nAI Model Probability: ${(mlProb * 100).toFixed(1)}%\nHeuristic Score: ${heuristicScore}/10\nHybrid Confidence: ${hybridPercent}%\n\n🧩 Reasoning:\n${reasons.map((r, i) => `${i + 1}. ${r}`).join(\"\\n\")}\n\n⚠️ Overall Assessment:\n${hybridVerdict === \"Fake\"\n  ? \"This posting exhibits strong signals of fraud, combining linguistic red flags, financial demands, and statistical anomalies from the model.\"\n  : hybridVerdict === \"Suspicious\"\n  ? \"Moderate deception cues detected. Proceed cautiously and validate sender credentials before engagement.\"\n  : \"No critical red flags detected. The posting appears legitimate, but basic due diligence is advised.\"}\n`.trim();\n\n// --- Step 5: Output structured result ---\nreturn [\n  {\n    json: {\n      ml_probability: mlProb,\n      ml_verdict: mlVerdict,\n      heuristic_score: heuristicScore,\n      hybrid_confidence: hybridPercent,\n      verdict: hybridVerdict,\n      reasoning: reasons,\n      summary\n    }\n  }\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1024,
+        320
+      ],
+      "id": "4e5b5d68-56bc-471e-b6b7-f9f5fdda4778",
+      "name": "Cumaltion"
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first()?.json ?? {};\n\nconst {\n  verdict = \"Unknown\",\n  deception_score = 0,\n  currency_mentions = [],\n  email_addresses = [],\n  external_links = [],\n  summary_flags = [],\n  matched_payment_keywords = [],\n  matched_bait_keywords = [],\n  matched_authority_keywords = []\n} = data;\n\n// --- Helper: Shorten long URLs & emails for readability\nconst short = (arr, max = 3) =>\n  arr.length > max ? arr.slice(0, max).concat(\"...\") : arr;\n\n// --- Build key highlights ---\nconst keyHighlights = [];\n\nif (matched_payment_keywords.length) keyHighlights.push(\"payment-related terms\");\nif (matched_bait_keywords.length) keyHighlights.push(\"bait/offer language\");\nif (matched_authority_keywords.length) keyHighlights.push(\"fake HR authority words\");\nif (currency_mentions.length) keyHighlights.push(\"currency mention\");\nif (external_links.length) keyHighlights.push(\"external link\");\nif (email_addresses.length > 2) keyHighlights.push(\"multiple HR emails\");\n\nconst highlightText = keyHighlights.length\n  ? keyHighlights.join(\", \")\n  : \"no major suspicious terms\";\n\n// --- Risk level summary ---\nconst riskLevel =\n  deception_score >= 8 ? \"High\" : deception_score >= 4 ? \"Medium\" : \"Low\";\n\n// --- Construct crisp summary ---\nconst summary = `\n Verdict: ${verdict} (Score: ${deception_score}, Risk: ${riskLevel})\n Key Signs: ${highlightText}.\n Emails: ${short(email_addresses).join(\", \") || \"None\"}\n Currency: ${currency_mentions.join(\", \") || \"None\"}\n Links: ${short(external_links).join(\", \") || \"None\"}\n Red Flags: ${summary_flags.join(\", \") || \"None\"}\n `.trim();\n\n// --- Output ---\nreturn [\n  {\n    json: {\n      verdict,\n      deception_score,\n      risk_level: riskLevel,\n      summary\n    }\n  }\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        448,
+        288
+      ],
+      "id": "90b4ecbb-5883-4751-b726-bfce70fd9271",
+      "name": "Heruistic"
+    },
+    {
+      "parameters": {
+        "jsCode": "// === INPUT HANDLING ===\nconst heuristic = $input.all()[0]?.json || {};  // From Heuristic Node\nconst ml = $input.all()[1]?.json || {};         // From FastAPI ML Node\nconst mistral = $input.all()[2]?.json || {};    // From Mistral Node\n\n// === EXTRACT VALUES ===\nconst heuristicScore = heuristic.deception_score ?? 0;\nconst heuristicVerdict =\n  heuristic.verdict ?? (heuristicScore >= 6 ? \"Fake\" : heuristicScore >= 3 ? \"Suspicious\" : \"Genuine\");\n\nconst mlProb = ml.probability ?? 0;\nconst mlVerdict = ml.verdict ?? (mlProb > 0.6 ? \"Fake\" : mlProb > 0.4 ? \"Suspicious\" : \"Genuine\");\n\nconst mistralVerdict = mistral.verdict ?? \"Unknown\";\nconst mistralConfidence = mistral.confidence ?? 0.5;\n\n// === WEIGHTED HYBRID SCORING ===\nconst hybridScore =\n  (heuristicScore / 10) * 0.3 + // heuristic weight\n  mlProb * 0.4 +                // model weight\n  mistralConfidence * 0.3;      // Mistral AI weight\n\nconst hybridPercent = Math.round(hybridScore * 1000) / 10;\n\nlet finalVerdict = \"Genuine\";\nif (hybridScore >= 0.75) finalVerdict = \"Fake\";\nelse if (hybridScore >= 0.45) finalVerdict = \"Suspicious\";\n\n// === DETAILED REASONING SECTION ===\nconst reasons = [];\n\n// Machine Learning Model contribution\nif (mlProb >= 0.8) {\n  reasons.push(\n    `🧮 The ML model predicted a ${Math.round(mlProb * 100)}% probability of fraud, classifying the posting as **${mlVerdict}**. This strongly influences the final decision.`\n  );\n} else if (mlProb >= 0.6) {\n  reasons.push(\n    `📈 The ML model shows a moderate likelihood (${Math.round(mlProb * 100)}%) of deception, labeling it as **${mlVerdict}**.`\n  );\n} else {\n  reasons.push(\n    `📊 The ML model found minimal statistical evidence of deception and classified the posting as **${mlVerdict}**.`\n  );\n}\n\n// Heuristic contribution\nif (heuristicScore >= 8) {\n  reasons.push(\n    `🔍 The heuristic engine detected multiple strong red flags (keywords such as ${heuristic.matched_deceptive_keywords?.slice(0, 3).join(\", \") || \"payment-related terms\"}), assigning a verdict of **${heuristicVerdict}**.`\n  );\n} else if (heuristicScore >= 5) {\n  reasons.push(\n    `🧠 The heuristic system found several moderate-risk terms typically linked to fake postings and marked it as **${heuristicVerdict}**.`\n  );\n} else {\n  reasons.push(\n    `✅ The heuristic rules found few or no suspicious keywords and rated this as **${heuristicVerdict}**.`\n  );\n}\n\n// Mistral contribution\nif (mistralVerdict && mistralVerdict !== \"Unknown\") {\n  reasons.push(\n    `🗣️ The Mistral LLM analyzed the text contextually and concluded the posting is **${mistralVerdict}**, with ${(mistralConfidence * 100).toFixed(1)}% confidence.`\n  );\n  if (mistral.feedback) {\n    reasons.push(`💬 AI Feedback: ${mistral.feedback}`);\n  }\n}\n\n// === VERDICT ALIGNMENT COMMENTARY ===\nlet alignmentNote = \"\";\nconst verdicts = [heuristicVerdict, mlVerdict, mistralVerdict];\nconst uniqueVerdicts = [...new Set(verdicts.filter(v => v !== \"Unknown\"))];\n\nif (uniqueVerdicts.length === 1) {\n  alignmentNote = `🟢 All three systems are in **complete agreement** — the posting is confidently classified as **${uniqueVerdicts[0]}**.`;\n} else if (uniqueVerdicts.length === 2) {\n  alignmentNote = `🟠 Two systems agree (${uniqueVerdicts.join(\" & \")}) while one differs. The disagreement indicates borderline features requiring closer review.`;\n} else {\n  alignmentNote = `🔴 All three systems differ slightly in classification, which suggests the posting contains both genuine and deceptive language patterns.`;\n}\n\n// === FINAL NARRATIVE SUMMARY ===\nconst summary = `\n🤖 AI Fraud Investigator Report\n────────────────────────────\n🧾 Final Verdict: ${finalVerdict}\n🎯 Confidence: ${hybridPercent}%\n\n📊 Individual Verdicts:\n- ML Model → ${mlVerdict} (${(mlProb * 100).toFixed(1)}%)\n- Heuristic Engine → ${heuristicVerdict} (Score: ${heuristicScore}/10)\n- Mistral LLM → ${mistralVerdict} (${(mistralConfidence * 100).toFixed(1)}%)\n\n────────────────────────────\n🧩 Analytical Breakdown:\n${reasons.map((r, i) => `${i + 1}. ${r}`).join(\"\\n\")}\n\n${alignmentNote}\n\n⚠️ Final Assessment:\n${\n  finalVerdict === \"Fake\"\n    ? \"🚨 The posting shows multiple overlapping fraud indicators across all detection layers. It is strongly recommended to avoid engagement, do not send payments, and verify company authenticity.\"\n    : finalVerdict === \"Suspicious\"\n    ? \"⚠️ Mixed signals detected. The posting may have some legitimate traits but also deceptive patterns. Verification of sender identity and job legitimacy is advised.\"\n    : \"✅ The posting appears legitimate, with all systems showing low deception probability. Still, maintain general caution when sharing personal details online.\"\n}\n`.trim();\n\n// === OUTPUT FINAL RESULT ===\nreturn [\n  {\n    json: {\n      final_verdict: finalVerdict,\n      heuristic_confidence_percent: hybridPercent,\n      ml_verdict: \"Suspicious\",\n      mistral_confidence: mistralConfidence,\n      rulebased_verdict: heuristicVerdict,\n      rulebased_score: heuristicScore,\n      reasoning_summary: reasons,\n      alignment_summary: alignmentNote,\n      final_report: summary\n    }\n  }\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1024,
+        576
+      ],
+      "id": "76f621c5-767e-486c-b7de-1c9f6306bf6b",
+      "name": "Her+LLM+ML"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Extract from File": {
+      "main": [
+        [
+          {
+            "node": "Information Extractor",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Document Classifier",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "NLP_herustic",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "FastAPI_Bert",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Extract from File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mistral Cloud Chat Model3": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Information Extractor",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Information Extractor": {
+      "main": [
+        [
+          {
+            "node": "Summary_outp",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Web_out",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Summary_outp": {
+      "main": [
+        []
+      ]
+    },
+    "NLP_herustic": {
+      "main": [
+        [
+          {
+            "node": "Heruistic",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Document Classifier": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "FastAPI_Bert": {
+      "main": [
+        [
+          {
+            "node": "Convert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mistral Cloud": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mistral Cloud_2": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Document Classifier",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convert": {
+      "main": [
+        [
+          {
+            "node": "Cumaltion",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Her+LLM+ML",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Web_out": {
+      "main": [
+        []
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Her+LLM+ML",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Cumaltion",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cumaltion": {
+      "main": [
+        []
+      ]
+    },
+    "Heruistic": {
+      "main": [
+        [
+          {
+            "node": "Cumaltion",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Her+LLM+ML",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Her+LLM+ML": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {},
+  "versionId": "863d7cf5-b46e-4c06-af9d-d5dc7bc4e4ee",
+  "meta": {
+    "instanceId": "0cb475162a3de141e22875f0fbbcf5f40b898a1b10605bfbdfeb922e376e4e96"
+  },
+  "id": "oUTsozWhgW6NICJm",
+  "tags": []
+}

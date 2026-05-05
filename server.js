@@ -1,0 +1,68 @@
+const express = require('express');
+const multer = require('multer');
+const axios = require('axios');
+const cors = require('cors');
+const FormData = require('form-data');
+const dotenv = require('dotenv');
+const path = require('path');
+
+dotenv.config();
+
+const app = express();
+const upload = multer({ storage: multer.memoryStorage() });
+
+app.use(cors());
+app.use(express.json());
+
+// Serve static files from the React app
+app.use(express.static(path.join(__dirname, 'dist')));
+
+const N8N_WEBHOOK_URL = process.env.N8N_WEBHOOK_URL || 'http://localhost:5678/webhook/receive-pdf';
+
+app.post('/api/analyze', upload.single('file'), async (req, res) => {
+  try {
+    const formData = new FormData();
+    
+    if (req.file) {
+      // If a file was uploaded
+      formData.append('file', req.file.buffer, {
+        filename: req.file.originalname,
+        contentType: req.file.mimetype,
+      });
+    } else if (req.body.text) {
+      // If text was provided (convert to virtual file for N8n if needed, or handle separately)
+      // The N8n workflow expects a 'file' property. We'll send the text as a .txt file.
+      formData.append('file', Buffer.from(req.body.text), {
+        filename: 'input.txt',
+        contentType: 'text/plain',
+      });
+    } else {
+      return res.status(400).json({ error: 'No file or text provided' });
+    }
+
+    console.log('Forwarding request to N8n...');
+    const response = await axios.post(N8N_WEBHOOK_URL, formData, {
+      headers: {
+        ...formData.getHeaders(),
+      },
+    });
+
+    res.json(response.data);
+  } catch (error) {
+    console.error('Error calling N8n:', error.message);
+    res.status(500).json({ 
+      error: 'Failed to analyze the document', 
+      details: error.response?.data || error.message 
+    });
+  }
+});
+
+// For any other request, send back the index.html
+app.get(/.*/, (req, res) => {
+  res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+});
+
+const PORT = process.env.PORT || 3001;
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
