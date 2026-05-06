@@ -21,7 +21,7 @@ class PredictRequest(BaseModel):
 @app.post("/predict")
 async def predict(request: PredictRequest):
     if not request.text:
-        throw HTTPException(status_code=400, detail="No text provided")
+        raise HTTPException(status_code=400, detail="No text provided")
     
     try:
         # Preprocess text
