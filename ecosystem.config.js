@@ -10,14 +10,6 @@ module.exports = {
         PORT: 3001
       },
       node_args: '--max-old-space-size=400'
-    },
-    {
-      name: 'deceptiscan-ml',
-      script: 'ml_service.py',
-      interpreter: 'python3',
-      env: {
-        PORT: 8000
-      }
     }
   ]
 };
