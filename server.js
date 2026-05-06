@@ -8,10 +8,12 @@ const path = require('path');
 const helmet = require('helmet');
 const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
+const compression = require('compression');
 
 dotenv.config();
 
 const app = express();
+app.use(compression()); // Enable Gzip compression
 const upload = multer({ 
   storage: multer.memoryStorage(),
   limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
