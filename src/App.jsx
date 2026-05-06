@@ -207,22 +207,45 @@ const App = () => {
 
       {result && (
         <section className="results-section" ref={resultRef}>
+          {/* Main Verdict Card */}
           <div className={`verdict-card verdict-${result.final_verdict || result.verdict}`}>
             {getVerdictIcon(result.final_verdict || result.verdict)}
             <div className="flex-1">
               <div className="flex items-center justify-between mb-2">
-                <h2 className="text-2xl font-bold font-heading">Detection Result</h2>
+                <h2 className="text-3xl font-bold font-heading">Security Report</h2>
                 <span className={`verdict-badge badge-${result.final_verdict || result.verdict}`}>
                   {result.final_verdict || result.verdict}
                 </span>
               </div>
-              <p className="opacity-80">
-                Analysis Confidence: <span className="font-bold">{result.heuristic_confidence_percent || result.deception_score * 10 || 0}%</span>
+              <p className="opacity-90 text-lg">
+                Overall Confidence Index: <span className="font-bold">{result.heuristic_confidence_percent || result.hybrid_confidence || result.deception_score * 10 || 0}%</span>
               </p>
             </div>
           </div>
 
-          <div className="glass-card">
+          {/* Analysis Layers Grid */}
+          <div className="report-grid mb-8">
+            <div className="report-stat-card">
+              <span className="stat-label">ML Model</span>
+              <span className="stat-value">{result.ml_verdict || 'N/A'}</span>
+              <div className="stat-progress">
+                <div className="bar" style={{width: `${(result.ml_probability || 0) * 100}%`}}></div>
+              </div>
+            </div>
+            <div className="report-stat-card">
+              <span className="stat-label">Heuristic Engine</span>
+              <span className="stat-value">{result.rulebased_verdict || result.verdict || 'N/A'}</span>
+              <span className="stat-sub">Score: {result.rulebased_score || result.heuristic_score || 0}/10</span>
+            </div>
+            <div className="report-stat-card">
+              <span className="stat-label">AI Agent</span>
+              <span className="stat-value">{result.mistral_verdict || 'Analyzed'}</span>
+              <span className="stat-sub">Conf: {(result.mistral_confidence || 0) * 100}%</span>
+            </div>
+          </div>
+
+          {/* Detailed Breakdown */}
+          <div className="glass-card mb-8">
             <h3 className="mb-6 text-xl font-bold flex items-center gap-3">
               <Shield className="text-accent-primary" size={24} /> 
               Analytical Breakdown
@@ -231,20 +254,32 @@ const App = () => {
             <div className="reasoning-list">
               {(result.reasoning_summary || result.reasoning || []).map((reason, index) => (
                 <div key={index} className="reasoning-item">
-                  <span>{index + 1}</span>
+                  <div className="item-num">{index + 1}</div>
                   <p>{reason}</p>
                 </div>
               ))}
             </div>
 
-            {result.final_report && (
-              <div className="mt-8 p-6 bg-white/5 rounded-2xl border border-white/10 relative overflow-hidden">
-                <div className="absolute top-0 left-0 w-1 h-full bg-accent-primary"></div>
-                <h4 className="text-xs font-bold uppercase text-accent-primary mb-3 tracking-widest">Final Intelligence Report</h4>
-                <p className="text-base leading-relaxed opacity-90 italic">"{result.final_report}"</p>
+            {result.alignment_summary && (
+              <div className="mt-8 p-4 bg-accent-primary/10 border border-accent-primary/20 rounded-xl flex gap-3 items-start">
+                <Info size={20} className="text-accent-primary mt-1" />
+                <p className="text-sm italic opacity-90">{result.alignment_summary}</p>
               </div>
             )}
           </div>
+
+          {/* Final Intelligence Report */}
+          {result.final_report && (
+            <div className="glass-card border-accent-primary/30">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-2 h-8 bg-accent-primary rounded-full"></div>
+                <h4 className="text-sm font-bold uppercase tracking-widest text-accent-primary">Final Intelligence Assessment</h4>
+              </div>
+              <p className="text-lg leading-relaxed opacity-95 font-medium italic">
+                "{result.final_report}"
+              </p>
+            </div>
+          )}
         </section>
       )}
       
