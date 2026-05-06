@@ -13,6 +13,7 @@ const compression = require('compression');
 dotenv.config();
 
 const app = express();
+app.set('trust proxy', true); // Trust Render's proxy
 app.use(compression()); // Enable Gzip compression
 const upload = multer({ 
   storage: multer.memoryStorage(),
@@ -31,7 +32,9 @@ app.use(express.json());
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 100,
-  message: { error: 'Too many requests, please try again later.' }
+  message: { error: 'Too many requests, please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false,
 });
 app.use('/api/', limiter);
 
@@ -66,7 +69,7 @@ app.post('/api/analyze', upload.single('file'), async (req, res) => {
       headers: {
         ...formData.getHeaders(),
       },
-      timeout: 30000, // 30 second timeout
+      timeout: 60000, // 60 second timeout (to allow N8n to wake up on Render)
     });
 
     console.log('N8n Response Received:', response.status);
