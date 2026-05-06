@@ -13,7 +13,7 @@ module.exports = {
     {
       name: 'deceptiscan-ml',
       script: 'ml_service.py',
-      interpreter: 'python',
+      interpreter: 'python3',
       env: {
         PORT: 8000
       }
