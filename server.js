@@ -61,19 +61,29 @@ app.post('/api/analyze', upload.single('file'), async (req, res) => {
       return res.status(400).json({ error: 'No file or text provided' });
     }
 
-    console.log('Forwarding request to N8n...');
+    console.log(`Forwarding request to N8n at: ${N8N_WEBHOOK_URL}`);
     const response = await axios.post(N8N_WEBHOOK_URL, formData, {
       headers: {
         ...formData.getHeaders(),
       },
+      timeout: 30000, // 30 second timeout
     });
 
+    console.log('N8n Response Received:', response.status);
     res.json(response.data);
   } catch (error) {
-    console.error('Error calling N8n:', error.message);
+    console.error('--- N8n Analysis Error ---');
+    console.error('Target URL:', N8N_WEBHOOK_URL);
+    console.error('Message:', error.message);
+    if (error.response) {
+      console.error('Status:', error.response.status);
+      console.error('Data:', JSON.stringify(error.response.data));
+    }
+    
     res.status(500).json({ 
-      error: 'Failed to analyze the document', 
-      details: error.response?.data || error.message 
+      error: 'Analysis Engine Unreachable', 
+      message: 'The N8n workflow did not respond. Ensure the workflow is ACTIVE and the URL is correct.',
+      details: error.message 
     });
   }
 });
