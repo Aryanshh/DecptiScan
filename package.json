@@ -9,7 +9,7 @@
     "preview": "vite preview",
     "start": "node server.js",
     "backend": "node server.js",
-    "prod": "pm2 start ecosystem.config.js"
+    "prod": "pm2-runtime start ecosystem.config.js"
   },
   "keywords": [],
   "author": "",
