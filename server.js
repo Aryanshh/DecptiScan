@@ -57,6 +57,25 @@ app.post('/api/analyze', upload.single('file'), async (req, res) => {
   }
 });
 
+// Mock FastAPI BERT endpoint for N8n workflow
+app.post('/predict', (req, res) => {
+  const text = req.body.text || "";
+  console.log('Mock ML model received text for prediction');
+  
+  // Simple heuristic mock: if text is very short or contains 'payment', give a higher probability
+  let probability = 0.1;
+  if (text.toLowerCase().includes('payment') || text.toLowerCase().includes('fee')) {
+    probability = 0.85;
+  } else if (text.length < 50) {
+    probability = 0.45;
+  }
+
+  res.json({
+    probability: probability,
+    verdict: probability > 0.6 ? "Fake" : probability > 0.4 ? "Suspicious" : "Genuine"
+  });
+});
+
 // For any other request, send back the index.html
 app.get(/.*/, (req, res) => {
   res.sendFile(path.join(__dirname, 'dist', 'index.html'));

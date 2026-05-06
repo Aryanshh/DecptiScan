@@ -21,6 +21,12 @@ DeceptiScan is a high-end, AI-powered platform designed to detect fraudulent job
 
 The system is powered by an advanced N8n workflow that performs deep analysis on the extracted text.
 
+> [!TIP]
+> If you encounter `ECONNREFUSED` on the `FastAPI_Bert` node, you can use the built-in **Mock ML Server**!
+> 1. In N8n, open the `FastAPI_Bert` node.
+> 2. Change the URL to: `http://host.docker.internal:3001/predict` (or your machine's IP).
+> 3. The main application will now handle ML predictions automatically.
+
 ![N8n Workflow](./n8n_workflow.png)
 
 ## 📦 Installation & Setup
