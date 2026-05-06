@@ -5,14 +5,33 @@ const cors = require('cors');
 const FormData = require('form-data');
 const dotenv = require('dotenv');
 const path = require('path');
+const helmet = require('helmet');
+const morgan = require('morgan');
+const rateLimit = require('express-rate-limit');
 
 dotenv.config();
 
 const app = express();
-const upload = multer({ storage: multer.memoryStorage() });
+const upload = multer({ 
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
+});
 
+// Production Security & Logging
+app.use(helmet({
+  contentSecurityPolicy: false, // Disable CSP for easier integration, or configure properly
+}));
+app.use(morgan('combined'));
 app.use(cors());
 app.use(express.json());
+
+// Rate Limiting: 100 requests per 15 minutes
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  message: { error: 'Too many requests, please try again later.' }
+});
+app.use('/api/', limiter);
 
 // Serve static files from the React app
 app.use(express.static(path.join(__dirname, 'dist')));
