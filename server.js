@@ -12,6 +12,24 @@ const compression = require('compression');
 
 dotenv.config();
 
+/**
+ * Perform local heuristic analysis for fraud detection
+ */
+function performHeuristicAnalysis(text) {
+  const flags = [];
+  const lowText = text.toLowerCase();
+  
+  if (lowText.includes('urgent') || lowText.includes('immediate action')) flags.push('Urgency Pressure');
+  if (lowText.includes('payment') || lowText.includes('bank transfer')) flags.push('Financial Request');
+  if (lowText.includes('winner') || lowText.includes('lottery')) flags.push('Unsolicited Prize');
+  if (lowText.includes('password') || lowText.includes('credential')) flags.push('Credential Phishing');
+  if (lowText.includes('offer letter') && lowText.includes('fee')) flags.push('Job Scam pattern');
+  if (text.length < 100) flags.push('Unusually Short Content');
+
+  const fraud_probability = Math.min(flags.length * 25, 95);
+  return { fraud_probability, flags };
+}
+
 const app = express();
 app.set('trust proxy', true); // Trust Render's proxy
 app.use(compression()); // Enable Gzip compression
